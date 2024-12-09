@@ -1,7 +1,9 @@
 # Project specific files
 *.log
 *.pbix
+
 export
+export*
 pyvenv.cfg
 
 

@@ -85,26 +85,28 @@ def main():
 
 			doc_id = document.DOCUMENTID
 
-def _folder_name(archive_nr: int, archive_name: str, row: List[pyodbc.Row]):
+def _folder_name(entity_name: str, archive_nr: int, archive_name: str, row: List[pyodbc.Row]):
 	key_field = row.__getattribute__(archive_key_fields[archive_nr])
 
 	year = row.INDEXEERDATUM.year
 	month = row.INDEXEERDATUM.month
 	
-	return f"{settings.EXPORT_FOLDER}/archief {str(archive_nr).zfill(2)} - {archive_name}/{year}/{month}/{key_field}"
+	return f"{settings.EXPORT_FOLDER}/Archief {str(archive_nr).zfill(2)} - {archive_name}/{entity_name}/{year}/{str(month).zfill(2)}/{key_field}"
 
 def _file_name(archive_nr: int, row: List[pyodbc.Row]):
 	key_field = row.__getattribute__(archive_key_fields[archive_nr])
+	if key_field is None:
+		key_field = row.DOCUMENTID
 	return f"{key_field}"
 
-def safe_audit_log(archive: database.ResultSet, row: List[pyodbc.Row]):
+def safe_audit_log(archive: database.ResultSet, document: List[pyodbc.Row]):
 
-	folder = _folder_name(archive.ARCHIEFID, archive.NAAM, row)
-	file_name = f"{_file_name(archive.ARCHIEFID, row)}-audit.json"
+	folder = _folder_name(document.Administratie, archive.ARCHIEFID, archive.NAAM, document)
+	file_name = f"{_file_name(archive.ARCHIEFID, document)}-audit.json"
 
-	logger.info(f"Saving audit log for document {row.DOCUMENTGUID} in {folder}/{file_name}")
+	logger.info(f"Saving audit log for document {document.DOCUMENTGUID} in {folder}/{file_name}")
 
-	log = db.get_audit_log(row.DOCUMENTGUID).to_dict()
+	log = db.get_audit_log(document.DOCUMENTGUID).to_dict()
 
 	if not os.path.exists(folder):
 		os.makedirs(folder)
@@ -113,15 +115,14 @@ def safe_audit_log(archive: database.ResultSet, row: List[pyodbc.Row]):
 		
 		# Write to file
 		file.write(json.dumps(log, indent=4, default=str, cls=DecimalEncoder).encode("utf-8"))
-
 	
 
-def	safe_metadata(archive: database.ResultSet, row: List[pyodbc.Row], fields: List[str]):
+def	safe_metadata(archive: database.ResultSet, document: List[pyodbc.Row], fields: List[str]):
 	# Safe metadata in XML or JSON format
-	folder = _folder_name(archive.ARCHIEFID, archive.NAAM, row)
-	file_name = f"{_file_name(archive.ARCHIEFID, row)}.json"
+	folder = _folder_name(document.Administratie, archive.ARCHIEFID, archive.NAAM, document)
+	file_name = f"{_file_name(archive.ARCHIEFID, document)}.json"
 
-	logger.info(f"Saving metadata for document {row.DOCUMENTID} in {folder}/{file_name}")
+	logger.info(f"Saving metadata for document {document.DOCUMENTID} in {folder}/{file_name}")
 
 	if not os.path.exists(folder):
 		os.makedirs(folder)
@@ -129,27 +130,29 @@ def	safe_metadata(archive: database.ResultSet, row: List[pyodbc.Row], fields: Li
 	with open(f"{folder}/{file_name}", "wb") as file:
 			
 			# Convert row to dictionary
-			r = [dict((fields[i], value) for i, value in enumerate(row))]
+			r = [dict((fields[i], value) for i, value in enumerate(document))]
 			
 			# Get notes and add to dictionary
-			notes = db.get_notes(archive.ARCHIEFID, row.DOCUMENTID).to_dict()
+			notes = db.get_notes(archive.ARCHIEFID, document.DOCUMENTID).to_dict()
 			r[0]["Notes"] = notes
 			
 			# Write to file
 			file.write(json.dumps(r, indent=4, default=str, cls=DecimalEncoder).encode("utf-8"))
 
 
-def download_file(archive: database.ResultSet, row: database.ResultSet):
+def download_file(archive: database.ResultSet, document: database.ResultSet):
 	
-	extension = row.FILE_TYPE.lower()
-	folder = _folder_name(archive.ARCHIEFID, archive.NAAM, row)
-	file_name = f"{_file_name(archive.ARCHIEFID, row)}-{str(row.PAGE_NR).zfill(2)}"
+	extension = document.FILE_TYPE.lower()
+	folder = _folder_name(document.Administratie, archive.ARCHIEFID, archive.NAAM, document)
+	file_name = f"{_file_name(archive.ARCHIEFID, document)}-{str(document.PAGE_NR).zfill(2)}"
 	
-	if row.FILE_TYPE == "TIF":
-		url = f"https://dms.actamarine.com/xtendis.web/services/httphandler.ashx/TiffpageAsPNG?&archiefid={archive.ARCHIEFID}&documentid={row.DOCUMENTID}&paginanummer={row.PAGE_NR}&filenummer={row.FILE_NR}&date=&contenttype=TIF&maxsize=1600"
+	if document.FILE_TYPE == "TIF":
+		url = f"https://dms.actamarine.com/xtendis.web/services/httphandler.ashx/TiffpageAsPNG?&archiefid={archive.ARCHIEFID}&documentid={document.DOCUMENTID}&paginanummer={document.PAGE_NR}&filenummer={document.FILE_NR}&date=&contenttype=TIF&maxsize=1600"
 		extension = "png"
 	else:
-		url = f"https://dms.actamarine.com/Xtendis.Web/services/httphandler.ashx/page?sessie={settings.XTENDIS_SESSION_ID}&archiefId={archive.ARCHIEFID}&documentid={row.DOCUMENTID}&paginanummer={row.PAGE_NR}&contenttype=image_tiff&filenummer={row.FILE_NR}&attachment=1&filename={file_name}"
+
+		#url = f"https://dms.actamarine.com/Xtendis.Web/services/httphandler.ashx/page?sessie={settings.XTENDIS_SESSION_ID}&archiefId={archive.ARCHIEFID}&documentid={document.DOCUMENTID}&paginanummer={document.PAGE_NR}&contenttype=image_tiff&filenummer={document.FILE_NR}&attachment=1&filename={file_name}"
+		url = f"https://dms.actamarine.com/Xtendis.Web/services/httphandler.ashx/page?archiefId={archive.ARCHIEFID}&documentid={document.DOCUMENTID}&paginanummer={document.PAGE_NR}&contenttype=image_tiff&filenummer={document.FILE_NR}&attachment=1&filename={file_name}"
 
 	logger.info(f"Downloading file {file_name}.{extension}")
 

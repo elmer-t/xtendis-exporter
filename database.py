@@ -38,6 +38,14 @@ class Database:
 		self.logger.debug(f"Connection string: {conn_string}")
 
 	def get_archives(self, archive_number: int = None) -> ResultSet:
+		"""
+		Get all archives or a specific archive by number
+		args:
+			archive_number: int (optional)
+		returns:
+			ResultSet
+		"""
+
 		query = "SELECT ARCHIEFID, NAAM FROM X10DBASE.dbo.ARCHIEF"
 
 		if archive_number != None:
@@ -47,6 +55,16 @@ class Database:
 		return self.query(query)
 	
 	def _get_index_fields(self, archive_number: int = None) -> ResultSet:
+		"""
+		Custom fields in an archive are stored in columns named INDEXFIELD_1, INDEXFIELD_2, etc.
+		We need to get the actual field name and the table name where the field is stored.
+
+		args:
+			archive_number: int (required)
+		returns:
+			ResultSet
+		"""
+
 		if archive_number == None:
 			Exception("archive_number is required")
 
@@ -57,6 +75,14 @@ class Database:
 		return self.query(query)
 	
 	def get_documents(self, document_number: int = None) -> ResultSet:
+		"""
+		Get all documents or a specific document by number
+		args:
+			document_number: int (required)
+		returns:
+			ResultSet
+		"""
+
 		if document_number == None:
 			Exception("document_number is required")
 
@@ -72,7 +98,7 @@ class Database:
 
 		query = f"SELECT d.DOCUMENTID, d.DOCUMENTGUID, so.PAGE_NR, so.FILE_NR, so.TYPE_ID, t.FILE_TYPE, \
 			 d.STATUS, d.GEBRUIKERID, g.[NAAMVOLUIT] + ' (' + g.NAAM + ')' AS GEBRUIKER, \
-				d.AANMAAKDATUM, d.MUTATIEDATUM, d.INDEXEERDATUM "
+			 d.AANMAAKDATUM, d.MUTATIEDATUM, d.INDEXEERDATUM "
 		
 		if index_field_rows:
 			query += index_fields
@@ -94,15 +120,19 @@ class Database:
 			
 
 		query += f"FROM \
-	OBJECTMANAGER.dbo.A{document_number}SUBOBJECT so INNER JOIN \
-	OBJECTMANAGER.dbo.A{document_number}OBJECT o ON o.OBJ_ID=so.OBJ_ID INNER JOIN"
+			OBJECTMANAGER.dbo.A{document_number}SUBOBJECT so INNER JOIN \
+			OBJECTMANAGER.dbo.A{document_number}OBJECT o ON o.OBJ_ID=so.OBJ_ID"
 		
 		for ref_table in ref_tables:
-			query += f" X10DBASE.dbo.{ref_table['Name']} {ref_table['Alias']} ON {ref_table['Alias']}.{ref_table['LocalKey']}={ref_table['ForeignAlias']}.{ref_table['ForeignKey']} INNER JOIN "
+			query += f" LEFT OUTER JOIN X10DBASE.dbo.{ref_table['Name']} {ref_table['Alias']} ON {ref_table['Alias']}.{ref_table['LocalKey']}={ref_table['ForeignAlias']}.{ref_table['ForeignKey']} "
 
-		query += "OBJECTMANAGER.dbo.SUBOBJ_TYPE_LOOKUP t ON so.TYPE_ID=t.TYPE_ID INNER JOIN \
-				X10DBASE.dbo.GEBRUIKER g ON d.GEBRUIKERID=g.GEBRUIKERID \
+		query += " INNER JOIN OBJECTMANAGER.dbo.SUBOBJ_TYPE_LOOKUP t ON so.TYPE_ID=t.TYPE_ID \
+				INNER JOIN X10DBASE.dbo.GEBRUIKER g ON d.GEBRUIKERID=g.GEBRUIKERID \
+				WHERE YEAR(d.INDEXEERDATUM) >= 2023 \
 			  ORDER BY 1 DESC"
+
+		self.logger.debug("Getting documents:")
+		self.logger.debug(f"{query}")
 
 		return self.query(query)
 
