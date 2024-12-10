@@ -144,7 +144,7 @@ def download_file(archive: database.ResultSet, document: database.ResultSet):
 	
 	extension = document.FILE_TYPE.lower()
 	folder = _folder_name(document.Administratie, archive.ARCHIEFID, archive.NAAM, document)
-	file_name = f"{_file_name(archive.ARCHIEFID, document)}-{str(document.PAGE_NR).zfill(2)}"
+	file_name = f"{_file_name(archive.ARCHIEFID, document)}-{str(document.PAGE_NR).zfill(3)}"
 	
 	if document.FILE_TYPE == "TIF":
 		url = f"https://dms.actamarine.com/xtendis.web/services/httphandler.ashx/TiffpageAsPNG?&archiefid={archive.ARCHIEFID}&documentid={document.DOCUMENTID}&paginanummer={document.PAGE_NR}&filenummer={document.FILE_NR}&date=&contenttype=TIF&maxsize=1600"
