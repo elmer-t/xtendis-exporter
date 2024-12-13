@@ -117,7 +117,7 @@ def safe_audit_log(archive: database.ResultSet, document: List[pyodbc.Row]):
 		file.write(json.dumps(log, indent=4, default=str, cls=DecimalEncoder).encode("utf-8"))
 	
 
-def	safe_metadata(archive: database.ResultSet, document: List[pyodbc.Row], fields: List[str]):
+def safe_metadata(archive: database.ResultSet, document: List[pyodbc.Row], fields: List[str]):
 	# Safe metadata in XML or JSON format
 	folder = _folder_name(document.Administratie, archive.ARCHIEFID, archive.NAAM, document)
 	file_name = f"{_file_name(archive.ARCHIEFID, document)}.json"
