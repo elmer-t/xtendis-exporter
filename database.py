@@ -1,7 +1,6 @@
 
 import pyodbc
 import logging
-
 import settings
 from typing import List 
 
