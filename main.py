@@ -130,11 +130,11 @@ def	safe_metadata(archive: database.ResultSet, document: List[pyodbc.Row], field
 	with open(f"{folder}/{file_name}", "wb") as file:
 			
 			# Convert row to dictionary
-			r = [dict((fields[i], value) for i, value in enumerate(document))]
+			r = dict((fields[i], value) for i, value in enumerate(document))
 			
 			# Get notes and add to dictionary
 			notes = db.get_notes(archive.ARCHIEFID, document.DOCUMENTID).to_dict()
-			r[0]["Notes"] = notes
+			r["Notes"] = notes
 			
 			# Write to file
 			file.write(json.dumps(r, indent=4, default=str, cls=DecimalEncoder).encode("utf-8"))
